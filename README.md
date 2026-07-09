@@ -28,20 +28,81 @@ Sender ──POST /hooks/:slug──▶ Ingest ──▶ SQLite ──▶ Delive
 - **Status** page shows per-route health, 24h counts, and delivery-worker heartbeat (`GET /api/status`).
 - Structured JSON logs (pino) correlate every stage by `eventId`.
 
-## Docker
+## Deploying with Docker
+
+The app ships as a single container: web server, delivery worker, and SQLite all in one process. The image is a multi-stage build on `node:24-alpine` (no native modules — SQLite is built into Node), runs as the unprivileged `node` user, and includes a healthcheck against `/api/status`.
+
+### Prerequisites
+
+- Docker Engine with the compose plugin (on a server: `curl -fsSL https://get.docker.com | sh`; on Mac/Windows: Docker Desktop)
+
+### Deploy
 
 ```bash
-docker compose up -d      # builds the image, runs on :8090, data on a named volume
+git clone https://github.com/Youdo365/WebhookCatcher.git
+cd WebhookCatcher
+docker compose up -d --build
 ```
 
-Or without compose:
+That's it — the dashboard is on `http://<server>:8090` and catch URLs are `http://<server>:8090/hooks/<slug>`. The compose file:
+
+- builds the image locally,
+- publishes port **8090**,
+- stores the SQLite database on a named volume (`webhook-data`), so caught webhooks survive restarts, upgrades, and container rebuilds,
+- sets `restart: unless-stopped`, so it comes back up after a server reboot.
+
+Check it's healthy:
+
+```bash
+docker compose ps                  # STATUS should show (healthy)
+docker compose logs -f             # structured JSON logs, one line per pipeline stage
+curl http://localhost:8090/api/status
+```
+
+### Update to a new version
+
+```bash
+git pull
+docker compose up -d --build       # rebuilds and replaces the container; data volume is untouched
+```
+
+### Backup and restore
+
+The entire state is one SQLite database on the `webhook-data` volume:
+
+```bash
+# backup
+docker run --rm -v webhook-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/webhook-data.tar.gz -C /data .
+
+# restore
+docker run --rm -v webhook-data:/data -v "$PWD":/backup alpine \
+  tar xzf /backup/webhook-data.tar.gz -C /data
+```
+
+### Without compose
 
 ```bash
 docker build -t webhook-catcher .
-docker run -d -p 8090:8090 -v webhook-data:/data --name webhook-catcher webhook-catcher
+docker run -d --name webhook-catcher --restart unless-stopped \
+  -p 8090:8090 -v webhook-data:/data webhook-catcher
 ```
 
-The image is a multi-stage build on `node:24-alpine` (~150 MB, no native modules — SQLite is built into Node). Caught webhooks persist on the `/data` volume; the container binds `0.0.0.0` and includes a healthcheck against `/api/status`.
+### Exposing it to the internet
+
+Webhook senders (Stripe, GitHub, …) need to reach the container from the internet. Don't publish port 8090 directly — put a reverse proxy with TLS in front (Caddy, Traefik, or nginx + certbot). Caddy is the least work:
+
+```
+# Caddyfile — automatic HTTPS via Let's Encrypt
+hooks.example.com {
+    reverse_proxy webhook-catcher:8090
+}
+```
+
+Two cautions before going public:
+
+- **The dashboard and admin API have no authentication yet.** Only expose `/hooks/*` publicly, or protect everything else at the proxy (e.g. basic auth on `/` and `/api/*` except `/hooks/`).
+- Use per-route **signing secrets** for senders that support HMAC signatures, so strangers can't POST fake events to your catch URLs.
 
 ## Configuration
 
