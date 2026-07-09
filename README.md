@@ -28,6 +28,21 @@ Sender ──POST /hooks/:slug──▶ Ingest ──▶ SQLite ──▶ Delive
 - **Status** page shows per-route health, 24h counts, and delivery-worker heartbeat (`GET /api/status`).
 - Structured JSON logs (pino) correlate every stage by `eventId`.
 
+## Docker
+
+```bash
+docker compose up -d      # builds the image, runs on :8090, data on a named volume
+```
+
+Or without compose:
+
+```bash
+docker build -t webhook-catcher .
+docker run -d -p 8090:8090 -v webhook-data:/data --name webhook-catcher webhook-catcher
+```
+
+The image is a multi-stage build on `node:24-alpine` (~150 MB, no native modules — SQLite is built into Node). Caught webhooks persist on the `/data` volume; the container binds `0.0.0.0` and includes a healthcheck against `/api/status`.
+
 ## Configuration
 
 | Env var    | Default     | Purpose                          |

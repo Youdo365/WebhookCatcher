@@ -1,0 +1,12 @@
+services:
+  webhook-catcher:
+    build: .
+    image: webhook-catcher
+    ports:
+      - "8090:8090"
+    volumes:
+      - webhook-data:/data
+    restart: unless-stopped
+
+volumes:
+  webhook-data:

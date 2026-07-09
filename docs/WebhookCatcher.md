@@ -128,7 +128,15 @@ Requirements: Node.js ≥ 22.13 (SQLite is built into Node — no other database
 | `HOST` | `127.0.0.1` | Bind address — set `0.0.0.0` to accept non-local traffic (required in Docker) |
 | `DATA_DIR` | `./data` | Directory for the SQLite database file |
 
-**Reachability:** `127.0.0.1` only accepts webhooks from the same machine. To receive webhooks from the internet during development, use a tunnel (e.g. `ngrok http 8090`). The planned deployment is a Docker container on a server.
+**Reachability:** `127.0.0.1` only accepts webhooks from the same machine. To receive webhooks from the internet during development, use a tunnel (e.g. `ngrok http 8090`), or deploy the Docker container on a server.
+
+### Docker
+
+```bash
+docker compose up -d
+```
+
+Multi-stage build on `node:24-alpine` — no native modules, single container, SQLite data persisted on the `/data` volume, healthcheck on `/api/status`. The container sets `HOST=0.0.0.0` so it accepts external traffic; put a reverse proxy with TLS in front of it for internet exposure.
 
 ## Codebase map
 
@@ -151,5 +159,6 @@ test/                    Transform + retry unit tests
 
 ## Roadmap
 
-- **Docker image** — multi-stage build on `node:alpine`, single container, volume-mounted `DATA_DIR`.
-- Ideas beyond that: auth on the dashboard/admin API before internet exposure, event retention/cleanup policy, per-route delivery rate limiting.
+- Auth on the dashboard/admin API before internet exposure
+- Event retention/cleanup policy
+- Per-route delivery rate limiting
