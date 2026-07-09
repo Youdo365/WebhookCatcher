@@ -2,6 +2,8 @@
 
 Catch webhooks, inspect them live, transform the payload, and forward it to another webhook — with delivery retries, replay, manual triggering, a status page, and full per-event logging.
 
+**Source code:** [github.com/Youdo365/WebhookCatcher](https://github.com/Youdo365/WebhookCatcher) (private)
+
 ## What it does
 
 WebhookCatcher sits between a webhook **sender** (a shop, Git host, payment provider, …) and a **destination** (Slack, another API, an automation platform). It solves four problems in one small app:
@@ -130,13 +132,60 @@ Requirements: Node.js ≥ 22.13 (SQLite is built into Node — no other database
 
 **Reachability:** `127.0.0.1` only accepts webhooks from the same machine. To receive webhooks from the internet during development, use a tunnel (e.g. `ngrok http 8090`), or deploy the Docker container on a server.
 
-### Docker
+## Deploying with Docker
+
+The app ships as a single container: web server, delivery worker, and SQLite in one process. Multi-stage build on `node:24-alpine` (no native modules), runs as the unprivileged `node` user, healthcheck on `/api/status`.
+
+### Deploy on a server
 
 ```bash
-docker compose up -d
+git clone https://github.com/Youdo365/WebhookCatcher.git
+cd WebhookCatcher
+docker compose up -d --build
 ```
 
-Multi-stage build on `node:24-alpine` — no native modules, single container, SQLite data persisted on the `/data` volume, healthcheck on `/api/status`. The container sets `HOST=0.0.0.0` so it accepts external traffic; put a reverse proxy with TLS in front of it for internet exposure.
+Dashboard: `http://<server>:8090` — catch URLs: `http://<server>:8090/hooks/<slug>`. The compose file publishes port 8090, stores the SQLite database on the named volume `webhook-data` (survives restarts and upgrades), and sets `restart: unless-stopped` so it comes back after a reboot.
+
+Verify:
+
+```bash
+docker compose ps        # STATUS should show (healthy)
+docker compose logs -f   # structured JSON logs per pipeline stage
+curl http://localhost:8090/api/status
+```
+
+### Update to a new version
+
+```bash
+git pull
+docker compose up -d --build   # data volume is untouched
+```
+
+### Backup and restore
+
+All state is one SQLite database on the `webhook-data` volume:
+
+```bash
+# backup
+docker run --rm -v webhook-data:/data -v "$PWD":/backup alpine tar czf /backup/webhook-data.tar.gz -C /data .
+# restore
+docker run --rm -v webhook-data:/data -v "$PWD":/backup alpine tar xzf /backup/webhook-data.tar.gz -C /data
+```
+
+### Exposing it to the internet
+
+Webhook senders need to reach the container from the internet. Don't publish port 8090 directly — put a reverse proxy with automatic TLS in front (Caddy is the least work):
+
+```
+hooks.example.com {
+    reverse_proxy webhook-catcher:8090
+}
+```
+
+Two cautions before going public:
+
+- **The dashboard and admin API have no authentication yet.** Only expose `/hooks/*` publicly, or protect everything else at the proxy (e.g. basic auth on all paths except `/hooks/`).
+- Use per-route **signing secrets** for senders that support HMAC signatures, so strangers can't POST fake events to your catch URLs.
 
 ## Codebase map
 
