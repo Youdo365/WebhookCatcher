@@ -5,8 +5,8 @@ services:
     ports:
       - "8090:8090"
     environment:
-      # Password for the admin user — set directly here.
-      - ADMIN_PASSWORD=Youdo365!
+      # Password for the admin user — CHANGE THIS before deploying.
+      - ADMIN_PASSWORD=change-me
       # Optional: paste your Uptime Kuma push-monitor URL here (from the Push
       # monitor you create in Kuma) — the app pings it every minute.
       # Example: - UPTIME_KUMA_PUSH_URL=https://kuma.example.com/api/push/AbC123xyz

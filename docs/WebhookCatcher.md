@@ -2,7 +2,7 @@
 
 Catch webhooks, inspect them live, transform the payload, and forward it to another webhook — with delivery retries, replay, manual triggering, a status page, and full per-event logging.
 
-**Source code:** [github.com/Youdo365/WebhookCatcher](https://github.com/Youdo365/WebhookCatcher) (private)
+**Source code:** [github.com/Youdo365/WebhookCatcher](https://github.com/Youdo365/WebhookCatcher)
 
 ## What it does
 
