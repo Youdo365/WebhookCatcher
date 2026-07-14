@@ -223,6 +223,51 @@ export function getMeta(key: string): string | undefined {
   return row?.value;
 }
 
+export function deleteMeta(key: string): void {
+  db.prepare('DELETE FROM meta WHERE key = ?').run(key);
+}
+
+// ── users ──────────────────────────────────────────────────────────
+
+export interface User {
+  id: number;
+  username: string;
+  password_hash: string;
+  created_at: string;
+}
+
+export type PublicUser = Omit<User, 'password_hash'>;
+
+export function listUsers(): PublicUser[] {
+  return db.prepare('SELECT id, username, created_at FROM users ORDER BY id').all() as unknown as PublicUser[];
+}
+
+export function getUser(id: number): User | undefined {
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
+}
+
+export function getUserByUsername(username: string): User | undefined {
+  return db.prepare('SELECT * FROM users WHERE username = ?').get(username) as User | undefined;
+}
+
+export function createUser(username: string, passwordHash: string): PublicUser {
+  const info = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, passwordHash);
+  const { password_hash: _ph, ...user } = getUser(Number(info.lastInsertRowid))!;
+  return user;
+}
+
+export function updateUserPassword(id: number, passwordHash: string): void {
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, id);
+}
+
+export function deleteUser(id: number): void {
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+}
+
+export function countUsers(): number {
+  return (db.prepare('SELECT COUNT(*) AS c FROM users').get() as { c: number }).c;
+}
+
 export interface RouteStatus {
   id: number; slug: string; name: string; active: number;
   last_received_at: string | null;

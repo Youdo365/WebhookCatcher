@@ -29,6 +29,12 @@ document.getElementById('logout').onclick = async () => {
   location.href = '/login';
 };
 
+let currentUser = null;
+api('/api/me').then((me) => {
+  currentUser = me;
+  document.getElementById('whoami').textContent = me.username;
+}).catch(() => {});
+
 const badge = (kind) => `<span class="badge ${esc(kind)}">${esc(kind)}</span>`;
 const hookUrl = (slug) => `${location.origin}/hooks/${slug}`;
 
@@ -50,6 +56,7 @@ const routes = [
   [/^#\/routes\/(\d+)\/edit$/, (m) => renderRouteForm(+m[1])],
   [/^#\/routes\/(\d+)\/trigger$/, (m) => renderTrigger(+m[1])],
   [/^#\/status$/, () => renderStatus()],
+  [/^#\/users$/, () => renderUsers()],
 ];
 
 let currentPage = '';
@@ -340,6 +347,72 @@ async function renderStatus() {
         </div>`).join('')}
     </div>
     ${s.routes.length === 0 ? '<div class="panel"><p class="muted">No routes configured yet.</p></div>' : ''}`;
+}
+
+// ── users ────────────────────────────────────────────────────────────
+
+async function renderUsers() {
+  const users = await api('/api/users');
+  view.innerHTML = `
+    <h1>Users</h1>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Username</th><th>Created (UTC)</th><th style="width:220px"></th></tr></thead>
+        <tbody>
+          ${users.map((u) => `
+            <tr>
+              <td><strong>${esc(u.username)}</strong>${currentUser && u.id === currentUser.id ? ' <span class="muted">(you)</span>' : ''}</td>
+              <td class="muted">${esc(u.created_at)}</td>
+              <td style="text-align:right">
+                <button data-pw="${u.id}">Change password</button>
+                ${currentUser && u.id === currentUser.id ? '' : `<button class="danger" data-del="${u.id}" data-name="${esc(u.username)}">Delete</button>`}
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <h2>Add user</h2>
+    <form id="add-user" class="panel">
+      <div class="grid2">
+        <div><label style="margin-top:0">Username</label><input name="username" required pattern="[a-zA-Z0-9._\\-]{2,32}"></div>
+        <div><label style="margin-top:0">Password <span class="muted">(min 8 characters)</span></label><input name="password" type="password" required minlength="8"></div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button type="submit" class="primary">Add user</button>
+        <span id="user-error" class="error-text"></span>
+      </div>
+    </form>`;
+
+  document.getElementById('add-user').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const form = ev.target;
+    try {
+      await api('/api/users', { method: 'POST', body: { username: form.username.value, password: form.password.value } });
+      renderUsers();
+    } catch (e) {
+      document.getElementById('user-error').textContent = e.message;
+    }
+  };
+  view.querySelectorAll('[data-pw]').forEach((b) => {
+    b.onclick = async () => {
+      const password = prompt('New password (min 8 characters):');
+      if (!password) return;
+      try {
+        await api(`/api/users/${b.dataset.pw}/password`, { method: 'PUT', body: { password } });
+        b.textContent = 'saved!';
+        setTimeout(() => { b.textContent = 'Change password'; }, 1200);
+      } catch (e) { alert(e.message); }
+    };
+  });
+  view.querySelectorAll('[data-del]').forEach((b) => {
+    b.onclick = async () => {
+      if (!confirm(`Delete user "${b.dataset.name}"? Their sessions are revoked immediately.`)) return;
+      try {
+        await api(`/api/users/${b.dataset.del}`, { method: 'DELETE' });
+        renderUsers();
+      } catch (e) { alert(e.message); }
+    };
+  });
 }
 
 navigate();

@@ -9,7 +9,7 @@ npm install
 npm run dev        # http://127.0.0.1:8090
 ```
 
-1. Sign in — on first start a password is generated and printed in the server logs (set the `ADMIN_PASSWORD` env var to choose your own).
+1. Sign in as `admin` — on first start a password is generated and printed in the server logs (set the `ADMIN_PASSWORD` env var to choose your own). Add more users on the **Users** page.
 2. Open the dashboard → **Routes** → **New route**. Give it a slug (e.g. `orders`), optionally a destination URL and a JSONata transform.
 2. Point a webhook sender at `http://<host>:8090/hooks/orders`.
 3. Watch it arrive live in the **Inbox**; click an event to see the raw payload, transformed output, and delivery timeline.
@@ -112,9 +112,9 @@ Two cautions before going public:
 | `PORT`     | `8090`      | HTTP port                        |
 | `HOST`     | `127.0.0.1` | Bind address (`0.0.0.0` in Docker) |
 | `DATA_DIR` | `./data`    | Where the SQLite file lives      |
-| `ADMIN_PASSWORD` | *generated* | Dashboard/admin password. If unset, one is generated on first start and printed in the logs |
+| `ADMIN_PASSWORD` | *generated* | Password for the `admin` user. If unset, one is generated on first start and printed in the logs |
 
-The dashboard, admin API, and event stream require a login (7-day session cookie). Only the catch endpoints (`/hooks/*`) and the login flow are public — webhook senders can't authenticate.
+The dashboard, admin API, and event stream require a login (7-day session cookie). Only the catch endpoints (`/hooks/*`) and the login flow are public — webhook senders can't authenticate. Users are managed on the **Users** page (or `/api/users`): add users, change passwords, delete users (deleting a user revokes their sessions immediately; you can't delete yourself or the last user).
 
 Optional per-route signing secret enables HMAC-SHA256 verification of incoming webhooks (`x-hub-signature-256` / `x-signature` / `x-webhook-signature`, GitHub-style `sha256=` prefix supported).
 

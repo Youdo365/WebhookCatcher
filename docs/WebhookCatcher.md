@@ -106,13 +106,20 @@ Everything the dashboard does is available as JSON endpoints:
 | `GET /api/status` | Route health + worker heartbeat (JSON behind the Status page) |
 | `GET /api/events/stream` | Server-Sent Events stream of incoming/updated events |
 
-## Authentication
+## Authentication and users
 
-The dashboard, admin API, and live event stream sit behind a **login page** (`/login`). Only the catch endpoints (`/hooks/*`) are public — webhook senders can't authenticate.
+The dashboard, admin API, and live event stream sit behind a **login page** (`/login`) with per-user accounts. Only the catch endpoints (`/hooks/*`) are public — webhook senders can't authenticate.
 
-- The password is set with the `ADMIN_PASSWORD` environment variable. If it isn't set, a random password is generated on first start and printed **once** in the server logs.
-- Passwords are stored as scrypt hashes; a successful login sets a signed, HTTP-only session cookie valid for 7 days.
-- Failed logins are delayed and logged (`auth.login_failed`).
+- On first start the **admin** user is created. Its password comes from the `ADMIN_PASSWORD` environment variable, or is generated and printed **once** in the server logs.
+- **Users page** in the dashboard: add users (username + password), change any user's password, delete users. Deleting a user revokes their sessions immediately. You can't delete your own account or the last remaining user.
+- Passwords are stored as scrypt hashes; a successful login sets a signed, HTTP-only session cookie valid for 7 days. The header shows who is signed in.
+- Failed logins are delayed and logged (`auth.login_failed`); user changes are logged with who made them.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/login` · `POST /api/logout` · `GET /api/me` | Session management |
+| `GET /api/users` · `POST /api/users` | List / add users |
+| `PUT /api/users/:id/password` · `DELETE /api/users/:id` | Change password / remove user |
 
 ## Logging
 
@@ -137,7 +144,7 @@ Requirements: Node.js ≥ 22.13 (SQLite is built into Node — no other database
 | `PORT` | `8090` | HTTP port |
 | `HOST` | `127.0.0.1` | Bind address — set `0.0.0.0` to accept non-local traffic (required in Docker) |
 | `DATA_DIR` | `./data` | Directory for the SQLite database file |
-| `ADMIN_PASSWORD` | *generated* | Dashboard/admin password — generated and logged on first start if unset |
+| `ADMIN_PASSWORD` | *generated* | Password for the `admin` user — generated and logged on first start if unset |
 
 **Reachability:** `127.0.0.1` only accepts webhooks from the same machine. To receive webhooks from the internet during development, use a tunnel (e.g. `ngrok http 8090`), or deploy the Docker container on a server.
 

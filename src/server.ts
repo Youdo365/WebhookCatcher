@@ -7,8 +7,16 @@ import { adminRoutes } from './routes/admin.js';
 import { statusRoutes } from './routes/status.js';
 import { streamRoutes } from './routes/stream.js';
 import { authRoutes } from './routes/auth.js';
+import { userRoutes } from './routes/users.js';
 import { initAuth, sessionFromCookieHeader, verifySessionToken } from './core/auth.js';
 import { startWorker } from './worker.js';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    /** Id of the logged-in user, set by the auth guard; null on public routes. */
+    userId: number | null;
+  }
+}
 
 const PORT = Number(process.env.PORT ?? 8090);
 const HOST = process.env.HOST ?? '127.0.0.1';
@@ -24,10 +32,15 @@ initAuth(app.log);
 // Everything requires a login except the catch endpoints (senders can't
 // authenticate) and the login flow itself.
 const PUBLIC_PATHS = ['/hooks/', '/login', '/api/login', '/style.css'];
+app.decorateRequest('userId', null);
 app.addHook('onRequest', async (req, reply) => {
   const path = (req.raw.url ?? '/').split('?')[0];
   if (PUBLIC_PATHS.some((p) => path === p || path.startsWith(p))) return;
-  if (verifySessionToken(sessionFromCookieHeader(req.headers.cookie))) return;
+  const userId = verifySessionToken(sessionFromCookieHeader(req.headers.cookie));
+  if (userId !== null) {
+    req.userId = userId;
+    return;
+  }
   if (path.startsWith('/api/')) return reply.code(401).send({ error: 'unauthorized' });
   return reply.redirect('/login');
 });
@@ -43,6 +56,7 @@ await app.register(fastifyStatic, {
   root: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public'),
 });
 await app.register(authRoutes);
+await app.register(userRoutes);
 
 startWorker(app.log);
 
