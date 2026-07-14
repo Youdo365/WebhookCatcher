@@ -5,9 +5,9 @@ services:
     ports:
       - "8090:8090"
     environment:
-      # Dashboard/admin password. If unset, one is generated on first start
-      # and printed in the container logs.
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Password for the admin user. Defaults to Youdo365! — override by
+      # setting ADMIN_PASSWORD in the shell or an .env file next to this file.
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Youdo365!}
     volumes:
       - webhook-data:/data
     restart: unless-stopped
