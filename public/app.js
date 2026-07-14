@@ -490,6 +490,22 @@ Sender ──POST /hooks/&lt;slug&gt;──▶  Catch  ──▶  Store  ──�
       <p>The <a href="#/status">Status</a> page shows per-route health — <span class="dot green"></span> all
       delivered, <span class="dot amber"></span> retries pending, <span class="dot red"></span> dead events or
       a stalled worker — plus 24-hour counts and success rate.</p>
+    </div>
+
+    <h2>Monitoring (Uptime Kuma)</h2>
+    <div class="panel">
+      <p>Two ways to watch this app from <a href="https://uptime.kuma.pet" target="_blank">Uptime Kuma</a> —
+      use either, or both:</p>
+      <p><strong>1. HTTP(s) monitor</strong> — point Kuma at the public health endpoint
+      (no login required, exposes no route or event data):</p>
+      <pre>${esc(location.origin)}/health</pre>
+      <p>It returns <code>200 {"status":"ok"}</code> while the delivery worker is alive and
+      <code>503 {"status":"degraded"}</code> if the worker stalls — so it catches both
+      "app down" and "app up but not delivering".</p>
+      <p><strong>2. Push monitor</strong> — create a <em>Push</em> monitor in Kuma, paste the URL it
+      generates into the <code>UPTIME_KUMA_PUSH_URL=</code> line in <code>docker-compose.yml</code>, and
+      redeploy. The app then pings Kuma every minute; if the app dies entirely, the pings stop and Kuma
+      alerts — covering failures an inbound probe can't see.</p>
     </div>`;
 }
 
