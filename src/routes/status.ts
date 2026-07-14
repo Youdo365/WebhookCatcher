@@ -5,6 +5,18 @@ import { HEARTBEAT_KEY } from '../worker.js';
 const WORKER_STALE_MS = 15_000;
 
 export async function statusRoutes(app: FastifyInstance): Promise<void> {
+  // Public health check for uptime monitors (Uptime Kuma HTTP monitor):
+  // 200 when the delivery worker is alive, 503 when it has stalled.
+  // Deliberately exposes no route or event data.
+  app.get('/health', async (_req, reply) => {
+    const heartbeat = Number(repo.getMeta(HEARTBEAT_KEY) ?? 0);
+    const healthy = Date.now() - heartbeat < WORKER_STALE_MS;
+    return reply.code(healthy ? 200 : 503).send({
+      status: healthy ? 'ok' : 'degraded',
+      worker_last_tick: heartbeat ? new Date(heartbeat).toISOString() : null,
+    });
+  });
+
   app.get('/api/status', async () => {
     const heartbeat = Number(repo.getMeta(HEARTBEAT_KEY) ?? 0);
     const routes = repo.statusSummary().map((r) => {

@@ -115,10 +115,18 @@ Two cautions before going public:
 | `HOST`     | `127.0.0.1` | Bind address (`0.0.0.0` in Docker) |
 | `DATA_DIR` | `./data`    | Where the SQLite file lives      |
 | `ADMIN_PASSWORD` | *generated* | Password for the `admin` user. If unset, one is generated on first start and printed in the logs |
+| `UPTIME_KUMA_PUSH_URL` | *unset* | Uptime Kuma push-monitor URL; when set, the app pings it every minute |
 
 The dashboard, admin API, and event stream require a login (7-day session cookie). Only the catch endpoints (`/hooks/*`) and the login flow are public — webhook senders can't authenticate. Users are managed on the **Users** page (or `/api/users`): add users, change passwords, delete users (deleting a user revokes their sessions immediately; you can't delete yourself or the last user).
 
 Optional per-route signing secret enables HMAC-SHA256 verification of incoming webhooks (`x-hub-signature-256` / `x-signature` / `x-webhook-signature`, GitHub-style `sha256=` prefix supported).
+
+## Monitoring with Uptime Kuma
+
+Two options, use either (or both):
+
+- **HTTP(s) monitor** — point Kuma at `https://hooks.designinlight.dev/health`. It's public (no login), exposes no route/event data, and returns `200 {"status":"ok"}` while the delivery worker is alive, `503 {"status":"degraded"}` if it stalls.
+- **Push monitor** — create a Push monitor in Kuma, copy its URL into `UPTIME_KUMA_PUSH_URL` (e.g. in `.env` next to docker-compose.yml), and the app pings Kuma every minute. If the app dies entirely, the pushes stop and Kuma alerts — this catches failure modes an HTTP probe can't reach (e.g. network path down).
 
 ## Scripts
 

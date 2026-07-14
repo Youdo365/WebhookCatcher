@@ -145,6 +145,7 @@ Requirements: Node.js ≥ 22.13 (SQLite is built into Node — no other database
 | `HOST` | `127.0.0.1` | Bind address — set `0.0.0.0` to accept non-local traffic (required in Docker) |
 | `DATA_DIR` | `./data` | Directory for the SQLite database file |
 | `ADMIN_PASSWORD` | *generated* | Password for the `admin` user — generated and logged on first start if unset |
+| `UPTIME_KUMA_PUSH_URL` | *unset* | Uptime Kuma push-monitor URL — pinged every minute when set |
 
 **Reachability:** `127.0.0.1` only accepts webhooks from the same machine. To receive webhooks from the internet during development, use a tunnel (e.g. `ngrok http 8090`), or deploy the Docker container on a server.
 
@@ -204,6 +205,11 @@ Two cautions before going public:
 
 - **Set a strong `ADMIN_PASSWORD`.** The dashboard and admin API are behind the login page; the catch endpoints stay public by design.
 - Use per-route **signing secrets** for senders that support HMAC signatures, so strangers can't POST fake events to your catch URLs.
+
+## Monitoring (Uptime Kuma)
+
+- **HTTP(s) monitor**: point Kuma at `https://hooks.designinlight.dev/health` — public, no login needed, no data exposed. Returns `200 {"status":"ok"}` while the delivery worker is alive, `503` when it stalls.
+- **Push monitor**: set `UPTIME_KUMA_PUSH_URL` to the push URL Kuma generates; the app pings it every minute. If the app dies, pushes stop and Kuma alerts.
 
 ## Codebase map
 

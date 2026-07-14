@@ -34,7 +34,7 @@ initAuth(app.log);
 
 // Everything requires a login except the catch endpoints (senders can't
 // authenticate) and the login flow itself.
-const PUBLIC_PATHS = ['/hooks/', '/login', '/api/login', '/style.css'];
+const PUBLIC_PATHS = ['/hooks/', '/login', '/api/login', '/style.css', '/health'];
 app.decorateRequest('userId', null);
 app.addHook('onRequest', async (req, reply) => {
   const path = (req.raw.url ?? '/').split('?')[0];
