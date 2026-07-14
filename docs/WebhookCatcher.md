@@ -209,7 +209,7 @@ Two cautions before going public:
 ## Monitoring (Uptime Kuma)
 
 - **HTTP(s) monitor**: point Kuma at `https://hooks.designinlight.dev/health` — public, no login needed, no data exposed. Returns `200 {"status":"ok"}` while the delivery worker is alive, `503` when it stalls.
-- **Push monitor**: set `UPTIME_KUMA_PUSH_URL` to the push URL Kuma generates; the app pings it every minute. If the app dies, pushes stop and Kuma alerts.
+- **Push monitor**: paste the push URL Kuma generates into the `UPTIME_KUMA_PUSH_URL=` line in `docker-compose.yml` and redeploy; the app pings it every minute. If the app dies, pushes stop and Kuma alerts.
 
 ## Codebase map
 

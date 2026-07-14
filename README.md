@@ -126,7 +126,7 @@ Optional per-route signing secret enables HMAC-SHA256 verification of incoming w
 Two options, use either (or both):
 
 - **HTTP(s) monitor** — point Kuma at `https://hooks.designinlight.dev/health`. It's public (no login), exposes no route/event data, and returns `200 {"status":"ok"}` while the delivery worker is alive, `503 {"status":"degraded"}` if it stalls.
-- **Push monitor** — create a Push monitor in Kuma, copy its URL into `UPTIME_KUMA_PUSH_URL` (e.g. in `.env` next to docker-compose.yml), and the app pings Kuma every minute. If the app dies entirely, the pushes stop and Kuma alerts — this catches failure modes an HTTP probe can't reach (e.g. network path down).
+- **Push monitor** — create a Push monitor in Kuma, paste its URL into the `UPTIME_KUMA_PUSH_URL=` line in `docker-compose.yml`, and redeploy (`docker compose up -d`). The app then pings Kuma every minute; if it dies entirely, the pushes stop and Kuma alerts — this catches failure modes an HTTP probe can't reach (e.g. network path down).
 
 ## Scripts
 

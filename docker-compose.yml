@@ -8,8 +8,10 @@ services:
       # Password for the admin user. Defaults to Youdo365! — override by
       # setting ADMIN_PASSWORD in the shell or an .env file next to this file.
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Youdo365!}
-      # Optional: Uptime Kuma push-monitor URL — the app pings it every minute.
-      - UPTIME_KUMA_PUSH_URL=${UPTIME_KUMA_PUSH_URL:-}
+      # Optional: paste your Uptime Kuma push-monitor URL here (from the Push
+      # monitor you create in Kuma) — the app pings it every minute.
+      # Example: - UPTIME_KUMA_PUSH_URL=https://kuma.example.com/api/push/AbC123xyz
+      - UPTIME_KUMA_PUSH_URL=
     volumes:
       - webhook-data:/data
     restart: unless-stopped
