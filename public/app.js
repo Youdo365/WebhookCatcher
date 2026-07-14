@@ -57,6 +57,7 @@ const routes = [
   [/^#\/routes\/(\d+)\/trigger$/, (m) => renderTrigger(+m[1])],
   [/^#\/status$/, () => renderStatus()],
   [/^#\/users$/, () => renderUsers()],
+  [/^#\/help$/, () => renderHelp()],
 ];
 
 let currentPage = '';
@@ -413,6 +414,83 @@ async function renderUsers() {
       } catch (e) { alert(e.message); }
     };
   });
+}
+
+// ── help ─────────────────────────────────────────────────────────────
+
+function renderHelp() {
+  view.innerHTML = `
+    <h1>How it works</h1>
+
+    <div class="panel">
+      <pre>
+Sender ──POST /hooks/&lt;slug&gt;──▶  Catch  ──▶  Store  ──▶  Transform  ──▶  Forward ──▶ Destination
+                                  │                                        │
+                               200 OK                          retries: 30s, 2m, 10m, 1h, 6h</pre>
+      <p>Every webhook this app catches is <strong>stored first, acknowledged immediately</strong>, and then
+      transformed and forwarded in the background. A slow or broken destination never causes a lost webhook —
+      the sender always gets a fast <code>200 OK</code>, and delivery is retried automatically.</p>
+    </div>
+
+    <h2>1. Catching</h2>
+    <div class="panel">
+      <p>Each <a href="#/routes">route</a> has its own <strong>catch URL</strong>:</p>
+      <pre>${esc(location.origin)}/hooks/&lt;slug&gt;</pre>
+      <p>Point any webhook sender at that URL. Every <code>POST</code> is saved with its full headers and body and
+      appears instantly in the <a href="#/inbox">Inbox</a> — even if the body isn't valid JSON.
+      If the route has a <strong>signing secret</strong>, the sender's HMAC-SHA256 signature
+      (<code>x-hub-signature-256</code> style) is verified first and requests with a bad signature are rejected.</p>
+    </div>
+
+    <h2>2. Transforming</h2>
+    <div class="panel">
+      <p>Each route has a <a href="https://jsonata.org" target="_blank">JSONata</a> expression that reshapes the
+      incoming payload into what the destination expects. The transform input is always:</p>
+      <pre>{ "headers": { ... },   incoming HTTP headers
+  "body":    { ... },   incoming payload
+  "route":   { "slug": "...", "name": "..." } }</pre>
+      <p>Examples — pass everything through unchanged:</p>
+      <pre>body</pre>
+      <p>Pick fields, calculate, build text:</p>
+      <pre>{
+  "text":   "New order from " & body.user.name,
+  "amount": body.total / 100
+}</pre>
+      <p>Reshape an array:</p>
+      <pre>{ "items": body.line_items.{ "sku": id, "qty": quantity } }</pre>
+      <p>Use the <strong>Preview</strong> box in the route editor to try a transform against a sample payload
+      before saving — what you see there is exactly what gets sent.</p>
+    </div>
+
+    <h2>3. Forwarding & retries</h2>
+    <div class="panel">
+      <p>The transformed payload is <code>POST</code>ed to the route's <strong>destination URL</strong>
+      (with any extra headers you configured, e.g. an API key). What the status badges mean:</p>
+      <table>
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>${badge('received')}</td><td>Stored, waiting for the delivery worker</td></tr>
+          <tr><td>${badge('delivered')}</td><td>Destination answered 2xx (or the route is catch-only)</td></tr>
+          <tr><td>${badge('failed')}</td><td>Last attempt failed — a retry is scheduled (30s → 2m → 10m → 1h → 6h)</td></tr>
+          <tr><td>${badge('dead')}</td><td>All 6 attempts failed, or the transform errored — fix the cause, then Replay</td></tr>
+        </tbody>
+      </table>
+      <p>Click any event to see its <strong>delivery timeline</strong>: every attempt with HTTP status,
+      response body, and error. A route with no destination URL is <em>catch-only</em>: events are stored
+      for inspection but not forwarded.</p>
+    </div>
+
+    <h2>Testing & fixing</h2>
+    <div class="panel">
+      <p><strong>⚡ Trigger</strong> (on a route) fires the whole pipeline with a payload you write yourself —
+      the end-to-end test button for a new route. <strong>↻ Replay</strong> (on an event) re-runs a stored payload
+      as a fresh event — use it after fixing a transform or a destination outage. Both are labeled
+      ${badge('manual')} / ${badge('replay')} in the Inbox so they're distinguishable from real traffic
+      ${badge('webhook')}.</p>
+      <p>The <a href="#/status">Status</a> page shows per-route health — <span class="dot green"></span> all
+      delivered, <span class="dot amber"></span> retries pending, <span class="dot red"></span> dead events or
+      a stalled worker — plus 24-hour counts and success rate.</p>
+    </div>`;
 }
 
 navigate();
