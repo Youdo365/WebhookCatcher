@@ -54,6 +54,10 @@ await app.register(streamRoutes);
 
 await app.register(fastifyStatic, {
   root: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public'),
+  // Dashboard assets must revalidate on every load, otherwise browsers keep
+  // serving an old app.js after an upgrade (ETag still gives cheap 304s).
+  cacheControl: false,
+  setHeaders(res) { res.setHeader('cache-control', 'no-cache'); },
 });
 await app.register(authRoutes);
 await app.register(userRoutes);
