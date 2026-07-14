@@ -193,10 +193,12 @@ docker run --rm -v webhook-data:/data -v "$PWD":/backup alpine tar xzf /backup/w
 Webhook senders need to reach the container from the internet. Don't publish port 8090 directly — put a reverse proxy with automatic TLS in front (Caddy is the least work):
 
 ```
-hooks.example.com {
+hooks.designinlight.dev {
     reverse_proxy webhook-catcher:8090
 }
 ```
+
+The app trusts `X-Forwarded-*` headers from the proxy, logs real client IPs, and marks the session cookie `Secure` on HTTPS. Catch URLs become `https://hooks.designinlight.dev/hooks/<slug>`.
 
 Two cautions before going public:
 

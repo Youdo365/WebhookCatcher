@@ -22,6 +22,9 @@ const PORT = Number(process.env.PORT ?? 8090);
 const HOST = process.env.HOST ?? '127.0.0.1';
 
 const app = Fastify({
+  // Behind a reverse proxy (Caddy/nginx/Traefik): trust X-Forwarded-* so
+  // req.protocol and req.ip reflect the real client, not the proxy.
+  trustProxy: true,
   logger: process.stdout.isTTY
     ? { level: 'info', transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss' } } }
     : { level: 'info' },

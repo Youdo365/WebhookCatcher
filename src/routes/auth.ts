@@ -14,8 +14,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(401).send({ error: 'wrong username or password' });
     }
     req.log.info({ username: user.username }, 'auth.login_success');
+    // Secure only over HTTPS (via trustProxy) so plain-HTTP local dev still works.
+    const secure = req.protocol === 'https' ? '; Secure' : '';
     reply.header('set-cookie',
-      `${COOKIE_NAME}=${createSessionToken(user.id)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`);
+      `${COOKIE_NAME}=${createSessionToken(user.id)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}${secure}`);
     return { ok: true, user };
   });
 

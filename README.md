@@ -95,10 +95,12 @@ Webhook senders (Stripe, GitHub, …) need to reach the container from the inter
 
 ```
 # Caddyfile — automatic HTTPS via Let's Encrypt
-hooks.example.com {
+hooks.designinlight.dev {
     reverse_proxy webhook-catcher:8090
 }
 ```
+
+The app is proxy-aware: it trusts `X-Forwarded-*` headers (`trustProxy`), so client IPs are logged correctly and the session cookie is automatically marked `Secure` when the request arrived over HTTPS. Catch URLs shown in the dashboard use the browser's origin, so they read `https://hooks.designinlight.dev/hooks/<slug>` automatically.
 
 Two cautions before going public:
 
