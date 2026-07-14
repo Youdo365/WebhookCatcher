@@ -4,6 +4,10 @@ services:
     image: webhook-catcher
     ports:
       - "8090:8090"
+    environment:
+      # Dashboard/admin password. If unset, one is generated on first start
+      # and printed in the container logs.
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     volumes:
       - webhook-data:/data
     restart: unless-stopped

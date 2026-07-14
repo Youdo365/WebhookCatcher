@@ -9,7 +9,8 @@ npm install
 npm run dev        # http://127.0.0.1:8090
 ```
 
-1. Open the dashboard → **Routes** → **New route**. Give it a slug (e.g. `orders`), optionally a destination URL and a JSONata transform.
+1. Sign in — on first start a password is generated and printed in the server logs (set the `ADMIN_PASSWORD` env var to choose your own).
+2. Open the dashboard → **Routes** → **New route**. Give it a slug (e.g. `orders`), optionally a destination URL and a JSONata transform.
 2. Point a webhook sender at `http://<host>:8090/hooks/orders`.
 3. Watch it arrive live in the **Inbox**; click an event to see the raw payload, transformed output, and delivery timeline.
 
@@ -101,7 +102,7 @@ hooks.example.com {
 
 Two cautions before going public:
 
-- **The dashboard and admin API have no authentication yet.** Only expose `/hooks/*` publicly, or protect everything else at the proxy (e.g. basic auth on `/` and `/api/*` except `/hooks/`).
+- **Set a strong `ADMIN_PASSWORD`.** The dashboard and admin API are behind the login page; the catch endpoints stay public by design.
 - Use per-route **signing secrets** for senders that support HMAC signatures, so strangers can't POST fake events to your catch URLs.
 
 ## Configuration
@@ -111,6 +112,9 @@ Two cautions before going public:
 | `PORT`     | `8090`      | HTTP port                        |
 | `HOST`     | `127.0.0.1` | Bind address (`0.0.0.0` in Docker) |
 | `DATA_DIR` | `./data`    | Where the SQLite file lives      |
+| `ADMIN_PASSWORD` | *generated* | Dashboard/admin password. If unset, one is generated on first start and printed in the logs |
+
+The dashboard, admin API, and event stream require a login (7-day session cookie). Only the catch endpoints (`/hooks/*`) and the login flow are public — webhook senders can't authenticate.
 
 Optional per-route signing secret enables HMAC-SHA256 verification of incoming webhooks (`x-hub-signature-256` / `x-signature` / `x-webhook-signature`, GitHub-style `sha256=` prefix supported).
 

@@ -15,10 +15,19 @@ async function api(path, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
+  if (res.status === 401) {
+    location.href = '/login'; // session expired or not signed in
+    throw new Error('unauthorized');
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `${res.status} ${res.statusText}`);
   return data;
 }
+
+document.getElementById('logout').onclick = async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  location.href = '/login';
+};
 
 const badge = (kind) => `<span class="badge ${esc(kind)}">${esc(kind)}</span>`;
 const hookUrl = (slug) => `${location.origin}/hooks/${slug}`;

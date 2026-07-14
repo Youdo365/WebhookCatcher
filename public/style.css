@@ -105,3 +105,7 @@ code { font-family: var(--mono); font-size: 13px; background: var(--bg); padding
 .timeline li.ok::before { background: var(--green); }
 .timeline li.err::before { background: var(--red); }
 .copy { cursor: pointer; }
+
+.login-wrap { min-height: calc(100vh - 60px); display: flex; align-items: center; justify-content: center; }
+.login-card { width: 340px; padding: 28px; }
+.logout-btn { margin-left: auto; }

@@ -106,6 +106,14 @@ Everything the dashboard does is available as JSON endpoints:
 | `GET /api/status` | Route health + worker heartbeat (JSON behind the Status page) |
 | `GET /api/events/stream` | Server-Sent Events stream of incoming/updated events |
 
+## Authentication
+
+The dashboard, admin API, and live event stream sit behind a **login page** (`/login`). Only the catch endpoints (`/hooks/*`) are public — webhook senders can't authenticate.
+
+- The password is set with the `ADMIN_PASSWORD` environment variable. If it isn't set, a random password is generated on first start and printed **once** in the server logs.
+- Passwords are stored as scrypt hashes; a successful login sets a signed, HTTP-only session cookie valid for 7 days.
+- Failed logins are delayed and logged (`auth.login_failed`).
+
 ## Logging
 
 Two layers, correlated by event id:
@@ -129,6 +137,7 @@ Requirements: Node.js ≥ 22.13 (SQLite is built into Node — no other database
 | `PORT` | `8090` | HTTP port |
 | `HOST` | `127.0.0.1` | Bind address — set `0.0.0.0` to accept non-local traffic (required in Docker) |
 | `DATA_DIR` | `./data` | Directory for the SQLite database file |
+| `ADMIN_PASSWORD` | *generated* | Dashboard/admin password — generated and logged on first start if unset |
 
 **Reachability:** `127.0.0.1` only accepts webhooks from the same machine. To receive webhooks from the internet during development, use a tunnel (e.g. `ngrok http 8090`), or deploy the Docker container on a server.
 
@@ -184,7 +193,7 @@ hooks.example.com {
 
 Two cautions before going public:
 
-- **The dashboard and admin API have no authentication yet.** Only expose `/hooks/*` publicly, or protect everything else at the proxy (e.g. basic auth on all paths except `/hooks/`).
+- **Set a strong `ADMIN_PASSWORD`.** The dashboard and admin API are behind the login page; the catch endpoints stay public by design.
 - Use per-route **signing secrets** for senders that support HMAC signatures, so strangers can't POST fake events to your catch URLs.
 
 ## Codebase map
@@ -208,6 +217,5 @@ test/                    Transform + retry unit tests
 
 ## Roadmap
 
-- Auth on the dashboard/admin API before internet exposure
 - Event retention/cleanup policy
 - Per-route delivery rate limiting

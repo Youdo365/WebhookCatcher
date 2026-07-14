@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — Webhook Catcher</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪝</text></svg>">
+</head>
+<body>
+  <main class="login-wrap">
+    <form class="panel login-card" id="login-form">
+      <div class="brand" style="text-align:center; font-size:20px">🪝 Webhook Catcher</div>
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" autofocus required>
+      <button type="submit" class="primary" style="width:100%; margin-top:16px">Sign in</button>
+      <p id="login-error" class="error-text" style="text-align:center; min-height:20px"></p>
+      <p class="muted" style="text-align:center; margin:0">First start? The initial password is in the server logs.<br>Set the <code>ADMIN_PASSWORD</code> env var to choose your own.</p>
+    </form>
+  </main>
+  <script>
+    document.getElementById('login-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: document.getElementById('password').value }),
+      });
+      if (res.ok) {
+        location.href = '/';
+      } else {
+        document.getElementById('login-error').textContent = 'Wrong password';
+        document.getElementById('password').select();
+      }
+    };
+  </script>
+</body>
+</html>
