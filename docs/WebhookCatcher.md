@@ -1,8 +1,9 @@
 # WebhookCatcher
 
-Catch webhooks, inspect them live, transform the payload, and forward it to another webhook — with delivery retries, replay, manual triggering, a status page, and full per-event logging.
+Self-hosted webhook relay in a single Docker container: catch webhooks, inspect them live, transform the payload, and forward it to another webhook — with delivery retries, replay, manual triggering, a status page, user management, and full per-event logging.
 
 **Source code:** [github.com/Youdo365/WebhookCatcher](https://github.com/Youdo365/WebhookCatcher)
+**Production:** [hooks.designinlight.dev](https://hooks.designinlight.dev)
 
 ## What it does
 
@@ -26,7 +27,7 @@ Key design decisions:
 
 - **Receiving is decoupled from forwarding.** The sender is acknowledged immediately after the event is stored; transformation and delivery run in a background worker. Slow destinations never make the sender time out.
 - **Transforms are pure functions.** A transform is a JSONata expression evaluated over `{ headers, body, route }` with no side effects — so the same code powers live delivery, the preview editor, and replays, and every mapping is unit-testable.
-- **One process, one file.** Web server, delivery worker, and SQLite database run in a single Node.js process. No external queue or database server to operate. The "queue" is a table scan for due events every 3 seconds.
+- **One container, one file.** Web server, delivery worker, and SQLite database run in a single Node.js process. No external queue or database server to operate. The "queue" is a table scan for due events every 3 seconds.
 
 ### Event lifecycle
 
@@ -45,7 +46,7 @@ A **route** is one webhook pipeline. It defines:
 
 | Field | Purpose |
 |---|---|
-| Slug | The catch URL becomes `http://<host>:8090/hooks/<slug>` |
+| Slug | The catch URL becomes `https://<host>/hooks/<slug>` |
 | Destination URL | Where the transformed payload is POSTed. Leave empty for a catch-only route (inspect without forwarding) |
 | Transform | JSONata expression mapping the incoming payload to the outgoing one (default `body` = pass through) |
 | Destination headers | Extra headers for the outgoing request, e.g. an API key |
@@ -78,11 +79,13 @@ The route editor has a live **preview**: paste a sample payload, click *Preview 
 
 ## Dashboard
 
-Runs at `http://127.0.0.1:8090`.
+Served by the container itself (production: `https://hooks.designinlight.dev`). Pages:
 
 - **Inbox** — every caught webhook, newest first, updating live as they arrive (Server-Sent Events; the green dot in the header shows the live connection). Click an event for the full detail: incoming payload and headers, transformed output, and the delivery timeline with every attempt.
 - **Routes** — create and edit routes, copy catch URLs, open the trigger form.
 - **Status** — health per route: green (all delivered), amber (retries pending), red (dead-lettered events), plus 24-hour received/delivered counts, success rate, and the delivery-worker heartbeat.
+- **Users** — manage who can sign in (see below).
+- **Help** — a built-in explanation of the pipeline, transforms, statuses, and monitoring, written for end users.
 
 ### Replay and manual trigger
 
@@ -95,7 +98,8 @@ Everything the dashboard does is available as JSON endpoints:
 
 | Method & path | Purpose |
 |---|---|
-| `POST /hooks/:slug` | The catch endpoint senders POST to |
+| `POST /hooks/:slug` | The catch endpoint senders POST to (public) |
+| `GET /health` | Public health check — `200` while healthy, `503` if the worker stalls |
 | `GET /api/routes` · `POST /api/routes` | List / create routes |
 | `GET` / `PUT` / `DELETE /api/routes/:id` | Read / update / delete a route |
 | `POST /api/routes/:id/trigger` | Fire the pipeline with `{ "payload": … }` |
@@ -108,11 +112,11 @@ Everything the dashboard does is available as JSON endpoints:
 
 ## Authentication and users
 
-The dashboard, admin API, and live event stream sit behind a **login page** (`/login`) with per-user accounts. Only the catch endpoints (`/hooks/*`) are public — webhook senders can't authenticate.
+The dashboard, admin API, and live event stream sit behind a **login page** (`/login`) with per-user accounts. Only the catch endpoints (`/hooks/*`) and `/health` are public — webhook senders can't authenticate.
 
-- On first start the **admin** user is created. Its password comes from the `ADMIN_PASSWORD` environment variable, or is generated and printed **once** in the server logs.
+- On first start the **admin** user is created with the password from the `ADMIN_PASSWORD` environment variable (set in `docker-compose.yml`; re-applied on every start, so it doubles as password recovery).
 - **Users page** in the dashboard: add users (username + password), change any user's password, delete users. Deleting a user revokes their sessions immediately. You can't delete your own account or the last remaining user.
-- Passwords are stored as scrypt hashes; a successful login sets a signed, HTTP-only session cookie valid for 7 days. The header shows who is signed in.
+- Passwords are stored as scrypt hashes; a successful login sets a signed, HTTP-only session cookie valid for 7 days (marked `Secure` over HTTPS). The header shows who is signed in.
 - Failed logins are delayed and logged (`auth.login_failed`); user changes are logged with who made them.
 
 | Endpoint | Purpose |
@@ -125,39 +129,19 @@ The dashboard, admin API, and live event stream sit behind a **login page** (`/l
 
 Two layers, correlated by event id:
 
-1. **Structured JSON logs** (pino) — one line per stage: `event.received`, `event.triggered`, `delivery.success`, `delivery.retry_scheduled`, `delivery.dead`, with route, attempt number, status code, and error. Pretty-printed in the terminal during development.
+1. **Structured JSON logs** (pino) — one line per stage: `event.received`, `event.triggered`, `delivery.success`, `delivery.retry_scheduled`, `delivery.dead`, with route, attempt number, status code, and error. View with `docker compose logs -f`.
 2. **Per-event timeline in the UI** — every delivery attempt is stored in the database and rendered on the event detail page, so debugging a failed delivery never requires reading server logs.
-
-## Running it
-
-```bash
-npm install
-npm run dev        # development, auto-reload — http://127.0.0.1:8090
-npm test           # unit tests (transform engine, retry schedule)
-npm run build && npm start   # production build
-```
-
-Requirements: Node.js ≥ 22.13 (SQLite is built into Node — no other database or service needed).
-
-| Env var | Default | Purpose |
-|---|---|---|
-| `PORT` | `8090` | HTTP port |
-| `HOST` | `127.0.0.1` | Bind address — set `0.0.0.0` to accept non-local traffic (required in Docker) |
-| `DATA_DIR` | `./data` | Directory for the SQLite database file |
-| `ADMIN_PASSWORD` | *generated* | Password for the `admin` user — generated and logged on first start if unset |
-| `UPTIME_KUMA_PUSH_URL` | *unset* | Uptime Kuma push-monitor URL — pinged every minute when set |
-
-**Reachability:** `127.0.0.1` only accepts webhooks from the same machine. To receive webhooks from the internet during development, use a tunnel (e.g. `ngrok http 8090`), or deploy the Docker container on a server.
 
 ## Deploying with Docker
 
-The app ships as a single container: web server, delivery worker, and SQLite in one process. Multi-stage build on `node:24-alpine` (no native modules), runs as the unprivileged `node` user, healthcheck on `/api/status`.
+The app ships as a single container: web server, delivery worker, and SQLite in one process. Multi-stage build on `node:24-alpine` (no native modules — SQLite is built into Node), runs as the unprivileged `node` user, container healthcheck on `/health`.
 
 ### Deploy on a server
 
 ```bash
 git clone https://github.com/Youdo365/WebhookCatcher.git
 cd WebhookCatcher
+# edit docker-compose.yml: set ADMIN_PASSWORD (and optionally UPTIME_KUMA_PUSH_URL)
 docker compose up -d --build
 ```
 
@@ -168,8 +152,18 @@ Verify:
 ```bash
 docker compose ps        # STATUS should show (healthy)
 docker compose logs -f   # structured JSON logs per pipeline stage
-curl http://localhost:8090/api/status
+curl http://localhost:8090/health
 ```
+
+### Configuration
+
+All settings live in `docker-compose.yml`:
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `ADMIN_PASSWORD` | `change-me` | Password for the `admin` user — change it before deploying |
+| `UPTIME_KUMA_PUSH_URL` | *empty* | Uptime Kuma push-monitor URL — pinged every minute when set |
+| `PORT` / `HOST` / `DATA_DIR` | `8090` / `0.0.0.0` / `/data` | Set correctly for Docker in the image; no need to touch |
 
 ### Update to a new version
 
@@ -208,26 +202,39 @@ Two cautions before going public:
 
 ## Monitoring (Uptime Kuma)
 
-- **HTTP(s) monitor**: point Kuma at `https://hooks.designinlight.dev/health` — public, no login needed, no data exposed. Returns `200 {"status":"ok"}` while the delivery worker is alive, `503` when it stalls.
+- **HTTP(s) monitor**: point Kuma at `https://hooks.designinlight.dev/health` — public, no login needed, no data exposed. Returns `200 {"status":"ok"}` while the delivery worker is alive, `503` when it stalls — catching both "app down" and "app up but not delivering".
 - **Push monitor**: paste the push URL Kuma generates into the `UPTIME_KUMA_PUSH_URL=` line in `docker-compose.yml` and redeploy; the app pings it every minute. If the app dies, pushes stop and Kuma alerts.
 
-## Codebase map
+## Development
+
+To work on the code you need Node.js ≥ 22.13 (no other services — SQLite is built into Node):
+
+```bash
+npm install
+npm test        # unit tests: transform engine, retry schedule, auth/users
+npm run dev     # local dev server on http://127.0.0.1:8090
+```
+
+Locally, `ADMIN_PASSWORD` is optional — without it a password is generated on first start and printed once in the logs. Local data lands in `./data/`.
+
+### Codebase map
 
 ```
 src/
-├── server.ts            Fastify wiring, static dashboard, worker startup
-├── worker.ts            Delivery loop (3s poll + instant wake on ingest), heartbeat
+├── server.ts            Fastify wiring, auth guard, static dashboard, worker startup
+├── worker.ts            Delivery loop (3s poll + instant wake), heartbeat, Kuma push
 ├── core/
 │   ├── transform.ts     Pure JSONata transform + spec validation
 │   ├── deliver.ts       Transform → POST → record attempt → retry/dead
 │   ├── retry.ts         Backoff schedule
 │   ├── trigger.ts       Manual trigger / replay (shared pipeline entry)
-│   ├── verify.ts        HMAC-SHA256 signature check
+│   ├── verify.ts        HMAC-SHA256 signature check of incoming webhooks
+│   ├── auth.ts          Password hashing, session tokens, first-start setup
 │   └── bus.ts           In-process pub/sub feeding the SSE stream
-├── routes/              ingest, admin API, status, SSE stream
+├── routes/              ingest, admin API, auth, users, status/health, SSE stream
 └── db/                  Schema + typed SQLite queries (node:sqlite)
-public/                  Dashboard (vanilla JS, no build step)
-test/                    Transform + retry unit tests
+public/                  Dashboard incl. login page (vanilla JS, no build step)
+test/                    Transform, retry, and auth unit tests
 ```
 
 ## Roadmap
